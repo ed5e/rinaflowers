@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>for rina ✿</title>
+<meta name="description" content="something i made for you, rina">
+<meta property="og:title" content="for rina ✿">
+<meta property="og:description" content="click me">
+<meta name="theme-color" content="#07090c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07090c;
+    --fg: #a6ffbc;
+    --dim: #4f6b5a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); overflow: hidden; }
+  body {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--fg);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+  }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+  #c { z-index: 1; }
+  #g { z-index: 2; filter: blur(7px) saturate(1.5); opacity: .8; mix-blend-mode: screen; }
+
+  .vignette {
+    position: fixed; inset: 0; z-index: 3; pointer-events: none;
+    background:
+      radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,.65) 100%),
+      repeating-linear-gradient(to bottom, rgba(255,255,255,.018) 0 1px, transparent 1px 3px);
+  }
+
+  #status, #controls {
+    position: fixed; top: max(14px, env(safe-area-inset-top)); z-index: 6;
+    font-size: 11px; letter-spacing: .02em; color: var(--dim);
+  }
+  #status { left: 16px; }
+  #controls { right: 16px; display: flex; align-items: center; gap: 14px; }
+  #controls button {
+    background: none; border: none; font: inherit; font-size: 11px;
+    color: var(--dim); cursor: pointer; padding: 4px 2px;
+    transition: opacity .8s, color .2s;
+  }
+  #controls button:hover { color: var(--fg); }
+  #replay { opacity: 0; pointer-events: none; }
+  #replay.show { opacity: 1; pointer-events: auto; }
+  #lang .on { color: var(--fg); text-shadow: 0 0 8px rgba(166,255,188,.6); }
+  #txt:lang(ja) {
+    font-family: 'JetBrains Mono', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', Meiryo, monospace;
+    letter-spacing: .04em;
+    word-break: keep-all; overflow-wrap: anywhere;
+  }
+
+  #box {
+    position: fixed; z-index: 5;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 210px;
+    padding: 18px 20px;
+    font: inherit;
+    font-size: clamp(13px, 3.6vw, 16px);
+    line-height: 1.6;
+    color: var(--fg);
+    text-align: center;
+    background: rgba(8, 14, 11, .88);
+    border: 1px solid rgba(166, 255, 188, .55);
+    border-radius: 3px;
+    cursor: pointer;
+    box-shadow: 0 0 18px rgba(166,255,188,.15), inset 0 0 18px rgba(166,255,188,.05);
+    animation: pulse 2.4s ease-in-out infinite;
+    transition:
+      top .95s cubic-bezier(.7,0,.2,1),
+      transform .95s cubic-bezier(.7,0,.2,1),
+      width .95s cubic-bezier(.7,0,.2,1),
+      box-shadow .3s;
+  }
+  #box::before {
+    content: '[ ? ]';
+    position: absolute; top: -.75em; left: 14px;
+    padding: 0 6px; font-size: 10px; line-height: 1.4;
+    background: var(--bg); color: var(--dim);
+  }
+  #box:hover { box-shadow: 0 0 30px rgba(166,255,188,.35), inset 0 0 18px rgba(166,255,188,.08); }
+  #box:focus-visible { outline: 1px dashed var(--fg); outline-offset: 4px; }
+  #box.open {
+    top: calc(100% - max(5vh, 22px) - env(safe-area-inset-bottom));
+    transform: translate(-50%, -100%);
+    width: min(88vw, 440px);
+    text-align: left;
+    cursor: default;
+    animation: none;
+  }
+  #box.open::before { content: '[ for_rina.txt ]'; }
+  .cursor {
+    display: inline-block; width: .6em; height: 1.1em;
+    vertical-align: -.18em; margin-left: 2px;
+    background: var(--fg); animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 14px rgba(166,255,188,.12), inset 0 0 14px rgba(166,255,188,.04); }
+    50%      { box-shadow: 0 0 30px rgba(166,255,188,.32), inset 0 0 20px rgba(166,255,188,.09); }
+  }
+</style>
+</head>
+<body>
+  <canvas id="c" aria-hidden="true"></canvas>
+  <canvas id="g" aria-hidden="true"></canvas>
+  <div class="vignette"></div>
+
+  <div id="status">~/for_rina $ _</div>
+  <div id="controls">
+    <button id="replay" aria-label="replay">[ ↻ replay ]</button>
+    <span id="lang"><button data-lang="en" class="on">EN</button> | <button data-lang="ja">JP</button></span>
+  </div>
+
+  <button id="box"><span id="txt">&gt; click me</span><span class="cursor"></span></button>
+
+<script>
+(() => {
+  const MESSAGES = {
+    en: "I wish I could give you these in person, but it's the next best thing...",
+    ja: "本当は直接渡したかったけど、今はこれが精一杯…",
+  };
+  const CLICK = { en: '> click me', ja: '> クリックしてね' };
+  let lang = 'en';
+
+  const FONT = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  const CODE = "{}[]<>/\\*+=#%&$01;:~^";
+  const $ = s => document.querySelector(s);
+  const main = $('#c'), ctx = main.getContext('2d');
+  const glow = $('#g'), gctx = glow.getContext('2d');
+  const box = $('#box'), txt = $('#txt'), statusEl = $('#status'), replayBtn = $('#replay');
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const easeOut = t => 1 - Math.pow(1 - t, 3);
+  const pick = (r, s) => s[Math.floor(r() * s.length)];
+  const rand = Math.random;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  const hsl = (h, s, l, a = 1) =>
+    a >= 1 ? `hsl(${h},${s}%,${clamp(l, 0, 98).toFixed(0)}%)`
+           : `hsla(${h},${s}%,${clamp(l, 0, 98).toFixed(0)}%,${a.toFixed(2)})`;
+  function dirChar(dx, dy) {
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    if (ax < ay * 0.42) return '|';
+    if (ax > ay * 2.4) return '-';
+    return ((dx > 0) === (dy < 0)) ? '/' : '\\';
+  }
+
+  // ---------- grid ----------
+  let W, H, DPR, fs, cw, ch, cols, rows;
+  let bch = [], bcol = [], stamp = new Int32Array(1), touched = [], frameId = 1;
+  let stars = [];
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    main.width = Math.round(W * DPR); main.height = Math.round(H * DPR);
+    glow.width = Math.max(1, Math.round(W / 4)); glow.height = Math.max(1, Math.round(H / 4));
+    fs = clamp(Math.round(Math.min(W, H) / 60), 9, 13);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.font = `${fs}px ${FONT}`;
+    ctx.textBaseline = 'top';
+    cw = ctx.measureText('M').width;
+    ch = Math.round(fs * 1.18);
+    cols = Math.ceil(W / cw) + 1; rows = Math.ceil(H / ch) + 1;
+    const n = cols * rows;
+    bch = new Array(n); bcol = new Array(n); stamp = new Int32Array(n);
+    stars = [];
+    const count = Math.floor(n * 0.022);
+    for (let k = 0; k < count; k++) {
+      stars.push({ c: Math.floor(rand() * cols), r: Math.floor(rand() * rows),
+                   g: pick(rand, CODE), ph: rand() * 6.28, sp: 0.0004 + rand() * 0.0012 });
+    }
+    if (opened) fitBox();
+    if (scene) layoutScene();
+  }
+
+  function put(c, r, g, color) {
+    if (c < 0 || r < 0 || c >= cols || r >= rows) return;
+    const i = r * cols + c;
+    if (stamp[i] !== frameId) { stamp[i] = frameId; touched.push(i); }
+    bch[i] = g; bcol[i] = color;
+  }
+
+  // ---------- scene ----------
+  const P = {
+    red:    { h: 350, s: 85, l: 58, ch: 350, cs: 70, cl: 32 },
+    white:  { h: 45,  s: 25, l: 90, ch: 44,  cs: 95, cl: 58 },
+    lav:    { h: 272, s: 70, l: 74, ch: 48,  cs: 95, cl: 62 },
+    pink:   { h: 325, s: 85, l: 72, ch: 45,  cs: 95, cl: 60 },
+    yellow: { h: 46,  s: 95, l: 64, ch: 24,  cs: 80, cl: 40 },
+    pink2:  { h: 335, s: 80, l: 68, ch: 335, cs: 70, cl: 40 },
+    peach:  { h: 18,  s: 90, l: 72, ch: 45,  cs: 95, cl: 60 },
+    coral:  { h: 8,   s: 85, l: 64, ch: 8,   cs: 70, cl: 38 },
+    blue:   { h: 205, s: 85, l: 72, ch: 48,  cs: 95, cl: 62 },
+  };
+  const LAYOUT = [
+    [0.00, 1.00, 'rose',    'red'],
+    [-0.52, 0.86, 'daisy',  'white'],
+    [0.55, 0.88, 'blossom', 'lav'],
+    [-0.95, 0.63, 'blossom','pink'],
+    [0.96, 0.65, 'daisy',   'yellow'],
+    [-0.26, 0.66, 'rose',   'pink2'],
+    [0.30, 0.70, 'blossom', 'peach'],
+    [0.03, 0.45, 'daisy',   'white'],
+    [-0.62, 0.42, 'rose',   'coral'],
+    [0.64, 0.44, 'blossom', 'blue'],
+  ];
+
+  let scene = null, sceneStart = 0, opened = false;
+  let particles = [], lastSpark = 0, lastPetal = 0, stage = -1;
+
+  function layoutScene() {
+    const rect = box.getBoundingClientRect();
+    const ox = rect.left + rect.width / 2;
+    const oy = rect.top - ch * 0.6;
+    const rnd = mulberry32(20261103);
+    const topM = Math.max(H * 0.07, 46);
+    const Hs = Math.max(140, oy - topM);
+    const Hb = Math.min(Hs, W * 1.35);
+    const R0 = clamp(Math.min(W * 0.12, Hb * 0.14), cw * 4.5, 90);
+    const spreadX = Math.max(R0, Math.min(W / 2 - R0 - cw * 2, Hb * 0.5, R0 * 4.6));
+
+    const flowers = LAYOUT.map(([lx, ly, type, pal]) => {
+      const R = R0 * (0.88 + rnd() * 0.24);
+      return {
+        type, pal: P[pal], R,
+        x: ox + lx * spreadX + (rnd() - 0.5) * R0 * 0.25,
+        y: oy - (Hb - R0) * ly + (rnd() - 0.5) * R0 * 0.2,
+      };
+    });
+
+    // growth order: shuffle
+    const order = flowers.map((_, i) => i).sort(() => rnd() - 0.5);
+    let maxLen = 1;
+    flowers.forEach(f => { f.len = Math.hypot(f.x - ox, f.y - oy); maxLen = Math.max(maxLen, f.len); });
+    order.forEach((idx, k) => {
+      const f = flowers[idx];
+      f.sStart = 150 + k * 140;
+      f.sDur = 1500 + 900 * (f.len / maxLen);
+      f.bStart = f.sStart + f.sDur - 80;
+      f.bDur = 1400 + rnd() * 400;
+    });
+
+    flowers.forEach(f => { makeStem(f, ox, oy, rnd); makeFlower(f, rnd); });
+
+    // filler (baby's breath) peeking out between flowers
+    const fillers = [];
+    flowers.forEach(f => {
+      if (rnd() > 0.8) return;
+      const a = -Math.PI / 2 + (rnd() - 0.5) * 2.8;
+      const d = f.R * (0.95 + rnd() * 0.25);
+      const cx = f.x + Math.cos(a) * d, cy = f.y + Math.sin(a) * d;
+      const n = 5 + Math.floor(rnd() * 5);
+      for (let j = 0; j < n; j++) {
+        fillers.push({
+          c: Math.floor((cx + (rnd() - 0.5) * cw * 5) / cw),
+          r: Math.floor((cy + (rnd() - 0.5) * ch * 2.6) / ch),
+          g: pick(rnd, "*.+'*"),
+          col: rnd() < 0.7 ? hsl(0, 0, 90) : hsl(330, 80, 86),
+          at: f.bStart + f.bDur * 0.5 + rnd() * 700,
+        });
+      }
+    });
+
+    // ribbon
+    const ry = oy - Math.max(ch * 4, (Hb - R0) * 0.16);
+    const rc = Math.round(ox / cw), rr = Math.floor(ry / ch);
+    const ribbon = [];
+    ["<=(@)=>", " /   \\ "].forEach((row, dr) => {
+      const start = rc - Math.floor(row.length / 2);
+      [...row].forEach((g, k) => {
+        if (g === ' ') return;
+        ribbon.push({ c: start + k, r: rr + dr, g,
+                      col: g === '@' ? hsl(335, 80, 55) : hsl(335, 85, 74) });
+      });
+    });
+
+    const drawOrder = flowers.slice().sort((a, b) => a.y - b.y);
+    const allCells = [];
+    flowers.forEach(f => f.cells.forEach(c => allCells.push(c)));
+    const tDone = Math.max(...flowers.map(f => f.bStart + f.bDur)) + 200;
+
+    scene = { ox, oy, flowers, drawOrder, fillers, ribbon, allCells, tDone, ribbonAt: 900 };
+  }
+
+  function makeStem(f, ox, oy, rnd) {
+    const dir = Math.sign(f.x - ox);
+    const p0 = { x: ox - dir * cw * (0.5 + rnd() * 2.2), y: oy };
+    const p2 = { x: f.x, y: f.y + f.R * 0.15 };
+    const c = { x: ox + (f.x - ox) * 0.1, y: oy - (oy - p2.y) * 0.62 };
+    const n = Math.ceil(f.len / (Math.min(cw, ch) * 0.25));
+    const cells = [];
+    let last = -1;
+    for (let k = 0; k <= n; k++) {
+      const t = k / n, u = 1 - t;
+      const x = u * u * p0.x + 2 * u * t * c.x + t * t * p2.x;
+      const y = u * u * p0.y + 2 * u * t * c.y + t * t * p2.y;
+      const dx = 2 * u * (c.x - p0.x) + 2 * t * (p2.x - c.x);
+      const dy = 2 * u * (c.y - p0.y) + 2 * t * (p2.y - c.y);
+      const col = Math.floor(x / cw), row = Math.floor(y / ch);
+      const key = row * 100000 + col;
+      if (key === last) continue;
+      last = key;
+      let g = dirChar(dx, dy);
+      if (rnd() < 0.07) g = pick(rnd, '10:;');
+      cells.push({ c: col, r: row, g, t, col: hsl(130, 55, 30 + rnd() * 16) });
+    }
+    f.stem = cells;
+    f.leaves = [];
+    if (cells.length > 12) {
+      const nl = 1 + (rnd() < 0.55 ? 1 : 0);
+      for (let j = 0; j < nl; j++) addLeaf(f, Math.floor((0.28 + rnd() * 0.4) * cells.length), rnd);
+    }
+  }
+  const stemAt = (f, t) => f.sStart + Math.pow(t, 0.85) * f.sDur;
+
+  function addLeaf(f, k, rnd) {
+    const s = f.stem;
+    const a = s[Math.max(0, k - 3)], b = s[Math.min(s.length - 1, k + 3)];
+    let tx = (b.c - a.c) * cw, ty = (b.r - a.r) * ch;
+    const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+    const side = rnd() < 0.5 ? -1 : 1;
+    const ang = side * (0.9 + rnd() * 0.35);
+    const dx = tx * Math.cos(ang) - ty * Math.sin(ang);
+    const dy = tx * Math.sin(ang) + ty * Math.cos(ang);
+    const Ll = cw * (4.5 + rnd() * 3);
+    const bx = (s[k].c + 0.5) * cw, by = (s[k].r + 0.5) * ch;
+    const cx = bx + dx * Ll * 0.55, cy = by + dy * Ll * 0.55;
+    const A = Ll * 0.5, B = Math.max(ch * 0.55, Ll * 0.22);
+    const mid = dirChar(dx, dy);
+    const base = stemAt(f, s[k].t);
+    const c0 = Math.floor((cx - A) / cw) - 1, c1 = Math.ceil((cx + A) / cw) + 1;
+    const r0 = Math.floor((cy - A) / ch) - 1, r1 = Math.ceil((cy + A) / ch) + 1;
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+      const px = (c + 0.5) * cw - cx, py = (r + 0.5) * ch - cy;
+      const u = px * dx + py * dy, w = -px * dy + py * dx;
+      if ((u / A) ** 2 + (w / B) ** 2 > 1) continue;
+      const g = Math.abs(w) < ch * 0.4 ? mid : pick(rnd, "{}()[]");
+      f.leaves.push({ c, r, g, col: hsl(128, 60, 38 + (u / A + 1) * 9),
+                      at: base + 80 + ((u + A) / (2 * A)) * 260 });
+    }
+  }
+
+  function makeFlower(f, rnd) {
+    const p = f.pal, cells = [];
+    const rot = rnd() * 6.28;
+    const c0 = Math.floor((f.x - f.R) / cw) - 1, c1 = Math.ceil((f.x + f.R) / cw) + 1;
+    const r0 = Math.floor((f.y - f.R) / ch) - 1, r1 = Math.ceil((f.y + f.R) / ch) + 1;
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+      const px = (c + 0.5) * cw - f.x, py = (r + 0.5) * ch - f.y;
+      const dn = Math.hypot(px, py) / f.R;
+      const th = Math.atan2(py, px);
+      let outer, centerR;
+      if (f.type === 'daisy') {
+        outer = 0.32 + 0.68 * Math.pow(Math.abs(Math.cos(5 * (th + rot))), 1.4); centerR = 0.27;
+      } else if (f.type === 'blossom') {
+        outer = 0.3 + 0.7 * Math.pow(Math.abs(Math.cos(2.5 * (th + rot))), 0.6); centerR = 0.2;
+      } else {
+        outer = 0.86 + 0.1 * Math.cos(5 * th + rot); centerR = 0.16;
+      }
+      if (dn > outer) continue;
+      let g, l, h = p.h, s = p.s;
+      const edge = dn > outer * 0.86;
+      if (dn < centerR) {
+        h = p.ch; s = p.cs;
+        l = p.cl + (1 - dn / centerR) * 14;
+        g = f.type === 'rose' ? '@' : pick(rnd, "@#%&0");
+      } else if (f.type === 'daisy') {
+        g = dirChar(Math.cos(th), Math.sin(th));
+        if (edge) g = pick(rnd, ".'");
+        l = p.l - dn * 10 - (edge ? 12 : 0);
+      } else if (f.type === 'blossom') {
+        g = edge ? pick(rnd, ".:*'") : pick(rnd, CODE);
+        l = p.l + 12 - dn * 20 - (edge ? 8 : 0);
+      } else {
+        const sp = ((dn * 3.3 - (th + rot) / (Math.PI * 2)) % 1 + 1) % 1;
+        const dark = sp < 0.32;
+        g = edge ? pick(rnd, ".:'") : dark ? pick(rnd, "@%&#") : pick(rnd, "()oc{}");
+        l = dark ? p.l - 18 : p.l + 4 - dn * 6;
+        if (edge) l = p.l - 8;
+      }
+      cells.push({ c, r, v: dn, g, col: hsl(h, s, l), hi: hsl(h, s, Math.min(96, l + 25)), gu: 0, gg: '' });
+    }
+    f.cells = cells;
+  }
+
+  // ---------- render ----------
+  const TIP = hsl(120, 90, 82);
+
+  function drawScene(t, now) {
+    const S = scene;
+
+    // stems + leaves
+    for (const f of S.flowers) {
+      for (const cell of f.stem) {
+        const at = stemAt(f, cell.t);
+        if (t < at) break;
+        if (t - at < 140) put(cell.c, cell.r, pick(rand, CODE), TIP);
+        else put(cell.c, cell.r, cell.g, cell.col);
+      }
+      for (const lc of f.leaves) {
+        if (t < lc.at) continue;
+        put(lc.c, lc.r, t - lc.at < 160 ? pick(rand, CODE) : lc.g, t - lc.at < 160 ? TIP : lc.col);
+      }
+    }
+
+    // ribbon
+    if (t > S.ribbonAt) {
+      const fresh = t - S.ribbonAt < 300;
+      for (const rb of S.ribbon) put(rb.c, rb.r, fresh ? pick(rand, CODE) : rb.g, rb.col);
+    }
+
+    // filler
+    for (const fl of S.fillers) if (t > fl.at) put(fl.c, fl.r, t - fl.at < 150 ? pick(rand, CODE) : fl.g, fl.col);
+
+    // flowers, back to front
+    const done = t > S.tDone;
+    for (const f of S.drawOrder) {
+      if (t < f.bStart) continue;
+      const raw = clamp((t - f.bStart) / f.bDur, 0, 1);
+      const p = easeOut(raw);
+      for (const cell of f.cells) {
+        if (cell.v > p) continue;
+        if (raw < 1 && p - cell.v < 0.1) { put(cell.c, cell.r, pick(rand, CODE), cell.hi); continue; }
+        if (now < cell.gu) { put(cell.c, cell.r, cell.gg, cell.hi); continue; }
+        const shimmer = done && Math.sin(now * 0.0018 + cell.c * 0.28 - cell.r * 0.35) > 0.985;
+        put(cell.c, cell.r, cell.g, shimmer ? cell.hi : cell.col);
+      }
+    }
+
+    if (done) {
+      // occasional code glitches on petals
+      for (let k = 0; k < 2; k++) {
+        if (rand() < 0.6) {
+          const cell = S.allCells[Math.floor(rand() * S.allCells.length)];
+          cell.gu = now + 90 + rand() * 180; cell.gg = pick(rand, CODE);
+        }
+      }
+      spawnParticles(now);
+    }
+    drawParticles(now);
+
+    // status
+    const newStage = t < 300 ? 0 : done ? 2 : 1;
+    if (newStage !== stage) {
+      stage = newStage;
+      statusEl.textContent = ['~/for_rina $ ./grow --bouquet', '~/for_rina $ growing...', '~/for_rina $ done ✿'][stage];
+      if (stage === 2) setTimeout(() => replayBtn.classList.add('show'), 1200);
+    }
+  }
+
+  function spawnParticles(now) {
+    const S = scene;
+    if (particles.length > 140) return;
+    if (now - lastSpark > 110) {
+      lastSpark = now;
+      const f = S.flowers[Math.floor(rand() * S.flowers.length)];
+      particles.push({
+        x: f.x + (rand() - 0.5) * f.R * 2.4, y: f.y + (rand() - 0.5) * f.R * 2,
+        vx: (rand() - 0.5) * 0.006, vy: -(0.008 + rand() * 0.016),
+        wa: cw * 0.6, wf: 0.002, ph: rand() * 6.28,
+        t0: now, life: 1800 + rand() * 1600, seq: ".+*+.",
+        h: rand() < 0.5 ? 45 : 330, s: 90, l: 85,
+      });
+    }
+    if (now - lastPetal > 850) {
+      lastPetal = now;
+      const f = S.flowers[Math.floor(rand() * S.flowers.length)];
+      const a = rand() * Math.PI;
+      const y0 = f.y + Math.sin(a) * f.R * 0.8;
+      const vy = 0.018 + rand() * 0.016;
+      particles.push({
+        x: f.x + Math.cos(a) * f.R * 0.8, y: y0,
+        vx: (rand() - 0.5) * 0.012, vy,
+        wa: cw * 2.2, wf: 0.0022 + rand() * 0.001, ph: rand() * 6.28,
+        t0: now, life: Math.max(600, (S.oy - ch - y0) / vy), g: pick(rand, "*'~,"),
+        h: f.pal.h, s: f.pal.s, l: f.pal.l,
+      });
+    }
+  }
+
+  function drawParticles(now) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      const age = now - p.t0;
+      if (age > p.life) { particles.splice(i, 1); continue; }
+      const k = age / p.life;
+      const x = p.x + p.vx * age + Math.sin(age * p.wf + p.ph) * p.wa;
+      const y = p.y + p.vy * age;
+      const a = k < 0.15 ? k / 0.15 : Math.min(1, (1 - k) / 0.3);
+      const g = p.seq ? p.seq[Math.min(p.seq.length - 1, Math.floor(k * p.seq.length))] : p.g;
+      put(Math.floor(x / cw), Math.floor(y / ch), g, hsl(p.h, p.s, p.l, a));
+    }
+  }
+
+  function frame(now) {
+    frameId++;
+    touched.length = 0;
+
+    for (const s of stars) {
+      const b = 0.5 + 0.5 * Math.sin(now * s.sp + s.ph);
+      if (b < 0.55) continue;
+      if (rand() < 0.002) s.g = pick(rand, CODE);
+      put(s.c, s.r, s.g, `rgba(120,200,150,${((b - 0.55) * 0.36).toFixed(2)})`);
+    }
+
+    if (scene) drawScene(now - sceneStart, now);
+
+    ctx.clearRect(0, 0, W, H);
+    let last = null;
+    for (const i of touched) {
+      const col = bcol[i];
+      if (col !== last) { ctx.fillStyle = col; last = col; }
+      ctx.fillText(bch[i], (i % cols) * cw, Math.floor(i / cols) * ch);
+    }
+    gctx.clearRect(0, 0, glow.width, glow.height);
+    gctx.drawImage(main, 0, 0, glow.width, glow.height);
+
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- interaction ----------
+  // keep the box the same height in both languages so the stems never shift
+  function fitBox() {
+    const saved = txt.textContent, savedLang = txt.lang;
+    box.style.minHeight = '';
+    let h = 0;
+    for (const l of ['en', 'ja']) {
+      txt.lang = l; txt.textContent = MESSAGES[l];
+      h = Math.max(h, box.offsetHeight);
+    }
+    txt.lang = savedLang; txt.textContent = saved;
+    box.style.minHeight = h + 'px';
+  }
+
+  let typeToken = 0, typing = false;
+  async function typeMessage() {
+    const my = ++typeToken;
+    typing = true;
+    txt.lang = lang;
+    txt.textContent = '';
+    for (const c of MESSAGES[lang]) {
+      if (my !== typeToken) return;
+      txt.textContent += c;
+      let d = lang === 'ja' ? 85 + rand() * 50 : 38 + rand() * 40;
+      if (c === ',' || c === '、') d = 320;
+      if (c === '.' || c === '…') d = 240;
+      await sleep(d);
+    }
+    if (my === typeToken) typing = false;
+  }
+
+  document.querySelectorAll('#lang button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.lang === lang) return;
+      lang = btn.dataset.lang;
+      document.querySelectorAll('#lang button').forEach(b => b.classList.toggle('on', b === btn));
+      if (!opened) { txt.lang = lang; txt.textContent = CLICK[lang]; }
+      else if (typing || txt.textContent) typeMessage();
+    });
+  });
+
+  function startBloom() {
+    layoutScene();
+    sceneStart = performance.now();
+    particles = []; stage = -1;
+    replayBtn.classList.remove('show');
+  }
+
+  box.addEventListener('click', async () => {
+    if (opened) return;
+    opened = true;
+    box.classList.add('open');
+    box.setAttribute('aria-disabled', 'true');
+    txt.textContent = '';
+    statusEl.textContent = '~/for_rina $ cat for_rina.txt';
+    await sleep(1000);
+    fitBox();
+    typeMessage();
+    await sleep(50);
+    while (typing) await sleep(100);
+    await sleep(700);
+    startBloom();
+  });
+
+  replayBtn.addEventListener('click', startBloom);
+
+  let rt;
+  addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(resize, 120); });
+
+  resize();
+  requestAnimationFrame(frame);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(resize);
+})();
+</script>
+</body>
+</html>
